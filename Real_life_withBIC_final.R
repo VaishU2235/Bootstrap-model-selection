@@ -3,7 +3,7 @@ library(mvtnorm)
 set.seed(12345)
 data("Shao", package = "bestglm")
 
-norm_bootstrap <-function(X,Y,Our_model_alpha,m=40,B=1000){
+norm_bootstrap <-function(X,Y,Our_model_alpha,m=40,B=100){
   no_of_models=dim(Our_model_alpha)[1]
   LOSS = matrix(NA, nrow = 1, ncol = no_of_models)
   for (j in 1:no_of_models) {
@@ -22,7 +22,7 @@ norm_bootstrap <-function(X,Y,Our_model_alpha,m=40,B=1000){
   return(which.min(LOSS))#Here we returned the model having least loss
 }
 
-norm_bootstrap_m40 <-function(X,Y,Our_model_alpha,B=1000){
+norm_bootstrap_m40 <-function(X,Y,Our_model_alpha,B=100){
   #We should calculate BIC when m=40 and our loss is different here.
   no_of_models=dim(Our_model_alpha)[1]
   LOSS = matrix(NA, nrow = 1, ncol = no_of_models)
@@ -45,15 +45,17 @@ norm_bootstrap_m40 <-function(X,Y,Our_model_alpha,B=1000){
     }
     LOSS[j]= model_loss+mean(loss)
   }
-  return(c(which.min(LOSS),which.min(BICLOSS)))
+  return(c(which.min(LOSS),which.min(BICLOSS)))#Here we returned the model having least loss and BIC Loss
 }
 
 #Initializing variables:
-#SUM=c()
-N=40;P=4;M=c(40,30,25,20,15)
+N=40;P=4;M=c(40,30,25,20,15)#Change the different bootstrap sample size we want to check here.
 X=matrix(NA,N,P+1)
 X[,1]=1
-TrueBeta=matrix(c(2,0,0,4,0),P+1,1)
+
+TrueBeta=matrix(c(2,0,0,4,0),P+1,1)#Change True Beta Here.
+
+# Here, X is fixed. If X is random, it is better to move bottom two lines inside the MC loop.
 X[,(2:(P+1))] = as.matrix.data.frame(Shao)
 Mu=X%*%TrueBeta
 
@@ -64,20 +66,24 @@ Our_model_alpha=t(matrix(c(1,0,0,1,0,
                            1,1,1,1,0,
                            1,1,0,1,1,
                            1,0,1,1,1,
-                           1,1,1,1,1),P+1,8))
-MCTrials=1000
+                           1,1,1,1,1),P+1,8))#Here, 8 is no. of models. If you are changing it, put no. of models in place of 8.
+
+MCTrials=1000#No. of trials for estimating probability of selection of a model.
+B=100# No. of trials for estimating loss.
 Result=matrix(0,dim(Our_model_alpha)[1],length(M)+1)
-Winner=matrix(0,MCTrials,2)#one for loss one for BIC
+Winner=matrix(0,MCTrials,2)#one winner for loss one winner for BIC
 proportion=BIC_Prop=c()
+
+#MC Loop
 for (m in M) {
   print(paste("Now calculating for M=",m))
   for (mc in 1:MCTrials) {
     eps=rnorm(N)
     Y=Mu+eps
     if(m!=40){
-      Winner[mc,]=c(norm_bootstrap(X,Y,Our_model_alpha,m),0)
+      Winner[mc,]=c(norm_bootstrap(X,Y,Our_model_alpha,m,B),0)
     }else{
-      Winner[mc,]=norm_bootstrap_m40(X,Y,Our_model_alpha,1000)
+      Winner[mc,]=norm_bootstrap_m40(X,Y,Our_model_alpha,B)
     }
   }
   if(m==40){
